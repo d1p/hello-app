@@ -36,7 +36,7 @@ jobs:
           DEPLOY_TOKEN: ${{ secrets.DEPLOY_REPO_TOKEN }}
         run: |
           TAG=${GITHUB_SHA::7}
-          git clone https://x-access-token:${DEPLOY_REPO_TOKEN}@github.com/d1p/hello-deploy.git
+          git clone https://x-access-token:${DEPLOY_TOKEN}@github.com/d1p/hello-deploy.git
           cd hello-deploy
           sed -i "s/newTag: .*/newTag: '${TAG}'/" kustomization.yaml
           git config user.name ci-bot
