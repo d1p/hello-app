@@ -1,0 +1,45 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: arc-runner-set
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests
+        run: docker build --target test .
+
+  release:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: arc-runner-set
+    env:
+      IMAGE: harbor.debashis.xyz/homelab/hello-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and push image
+        env:
+          HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+          HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+        run: |
+          TAG=${GITHUB_SHA::7}
+          echo "$HARBOR_PASSWORD" | docker login harbor.debashis.xyz -u "$HARBOR_USERNAME" --password-stdin
+          docker build --build-arg APP_VERSION=$TAG -t $IMAGE:$TAG .
+          docker push $IMAGE:$TAG
+
+      - name: Point the deploy repo at the new image
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_REPO_TOKEN }}
+        run: |
+          TAG=${GITHUB_SHA::7}
+          git clone https://x-access-token:${DEPLOY_TOKEN}@github.com/YOUR_GH_USER/hello-deploy.git
+          cd hello-deploy
+          sed -i "s/newTag: .*/newTag: '${TAG}'/" kustomization.yaml
+          git config user.name ci-bot
+          git config user.email ci-bot@users.noreply.github.com
+          git commit -am "hello-app -> ${TAG}"
+          git push
